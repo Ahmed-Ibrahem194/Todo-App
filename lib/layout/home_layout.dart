@@ -1,227 +1,224 @@
-import 'package:ahmed/modules/archived_task/archived_tasks_screen.dart';
-import 'package:ahmed/modules/done_tasks/done_tasks_screen.dart';
-import 'package:ahmed/modules/new_tasks/new_tasks_screen.dart';
-import 'package:ahmed/shared/componant/componant.dart';
+
+import 'package:ahmed/shared/cubit/cubit.dart';
+import 'package:ahmed/shared/cubit/states.dart';
+import 'package:conditional_builder/conditional_builder.dart' show ConditionalBuilder;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import "package:sqflite/sqflite.dart";
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
-class HomeLayout extends StatefulWidget {
+class HomeLayout extends StatelessWidget {
 
-  @override
-  _HomeLayoutState createState() => _HomeLayoutState();
-}
 
-class _HomeLayoutState extends State<HomeLayout> {
+  bool isClickable = true;
 
-  IconData myIcone = Icons.edit;
-
-  bool isBottomSheetShown= false ;
-
-  late Database database ;
-
-  int currentIndex = 0 ;
-
-     var titlecontroller = TextEditingController() ;
-     var timecontroller = TextEditingController() ;
-
+  var titlecontroller = TextEditingController();
+  var timecontroller = TextEditingController();
+  var datecontroller = TextEditingController();
   var scaffoldkey = GlobalKey<ScaffoldState>();
   var formkey = GlobalKey<FormState>();
 
-
-  List<Widget> screens =
-      [
-        NewTasksScreen(),
-        DoneTasksScreen(),
-        ArchivedTasksScreen(),
-      ];
-
-  List<String> titles =
-  [
-    "New Tasks" ,
-    "Done Tasks" ,
-    "Archived Tasks" ,
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: scaffoldkey,
-      appBar: AppBar(
-        leading: Icon(Icons.menu,),
-        title: Text(
-          titles[currentIndex],
-        ),
-      ),
-      body: screens[currentIndex],
 
-      floatingActionButton: FloatingActionButton(
-          onPressed: ()
-          {
-            if(isBottomSheetShown)
+
+    return BlocProvider(
+        create: (BuildContext context) => AppCubit(),
+        child:
+        BlocConsumer<AppCubit, AppStates> (
+        listener: (context , state){
+          if(state is AppInsertDatabaseState)
             {
-              if(formkey.currentState!.validate()) {
-                Navigator.pop(context);
-                isBottomSheetShown = false;
-                setState(() {
-                  myIcone = Icons.edit;
-                });
-              }
-            } else
+              Navigator.pop(context);
+            }
+        },
+        builder:(context , state){
+
+          return Scaffold(
+          key:scaffoldkey ,
+          appBar: AppBar(
+            leading: Icon(Icons.menu,),
+            title: Text(
+              AppCubit.get(context).titles[AppCubit.get(context).currentIndex],
+            ),
+          ),
+          body:  ConditionalBuilder(
+            condition: true,
+            builder:(context) => AppCubit.get(context).screens[AppCubit.get(context).currentIndex],
+            fallback: (context) => Center(child: CircularProgressIndicator()),
+
+          ),
+
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              if (AppCubit.get(context).isBottomSheetShown)
               {
+                if (formkey.currentState!.validate())
+                {
+                 AppCubit.get(context).insertToDataBase(
+                     date:datecontroller.text,
+                     time: timecontroller.text ,
+                     title: titlecontroller.text );
+                    // title: titlecontroller.text,
+                    // time: timecontroller.text,
+                    // date: datecontroller.text,
+                  // ).then((value)
+                  // {
+                  //   AppCubit.get(context).getDataFromDataBase(AppCubit.get(context).database).then((value){
+                  //     AppCubit.get(context). tasks = value;
+                  //   });
+                  //   Navigator.pop(context);
+                  //   AppCubit.get(context).isBottomSheetShown;
+                  // });
+                }
+              } else {
                 scaffoldkey.currentState!.showBottomSheet(
-                    (context) => Container(
-                      color:  Colors.grey[100],
+                      (context) =>
+                      Container(
+                        color: Colors.grey[100],
                         padding: EdgeInsets.all(20.0),
 
-                      child: Form(
-                        key: formkey,
+                        child: Form(
+                          key: formkey,
 
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children:
-                          [
-                            //Title
-                            defultFormField
-                              (
-                              controller: titlecontroller,
-                              type:TextInputType.text ,
-
-
-                              validate:(String value)
-                              {
-                                if(value.isEmpty)
-                                {
-                                  return "Enter titlt" ;
-                                }
-                                return null ;
-                              },
-                              labelText: "Task Title",
-                              prefix:Icons.title,
-                            ),
-                            SizedBox(height: 20.0,),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children:
+                            [
+                              //Title
+                              TextFormField
+                                (
+                                controller: titlecontroller,
+                                keyboardType: TextInputType.text,
 
 
-                            //Time
-                            defultFormField
-                              (
-                              onTap: ()
-                              {
-                                showTimePicker(
-                                  context: context,
-                                  initialTime: TimeOfDay.now(),
-                                ).then((value)
-                                {
-                                  timecontroller.text = value!.format(context).toString();
-                                  print(value.format(context));
-                                });
-                              },
-                              controller: timecontroller,
-                              type:TextInputType.datetime ,
-                              validate:(String value)
-                              {
-                                if(value.isEmpty)
-                                {
-                                  return "Enter Time" ;
-                                }
-                                return null ;
-                              },
-                              labelText: "Task Time",
-                              prefix:Icons.watch_later_outlined ,
-                            ),
+                                validator: (String? value) {
+                                  if (value!.isEmpty) {
+                                    return "Enter titlt";
+                                  }
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  prefixIcon: Icon(Icons.title),
+                                  labelText: 'Task Title',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
 
-                          ],
+                              SizedBox(height: 20.0,),
+
+                              //time
+                              TextFormField(
+                                controller: timecontroller,
+                                keyboardType: TextInputType.datetime,
+
+                                onTap: () {
+                                  showTimePicker(
+                                    context: context,
+                                    initialTime: TimeOfDay.now(),
+                                  ).then((value) {
+                                    timecontroller.text =
+                                        value!.format(context).toString();
+                                  });
+                                },
+                                validator: (String? value) {
+                                  if (value!.isEmpty) {
+                                    return "time mustn't be empty";
+                                  }
+                                  return null;
+                                },
+
+                                decoration: InputDecoration(
+                                  prefixIcon: Icon(Icons.watch_later_outlined),
+                                  labelText: 'Task Time',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+
+                              SizedBox(height: 20.0,),
+
+                              //date
+                              TextFormField(
+                                controller: datecontroller,
+                                keyboardType: TextInputType.datetime,
+                                onTap: () {
+                                  showDatePicker(
+                                    context: context,
+                                    initialDate: DateTime.now(),
+                                    firstDate: DateTime.now(),
+                                    lastDate: DateTime.parse("2021-10-03"),
+                                  ).then((value) {
+                                    datecontroller.text =
+                                        DateFormat.yMMMd().format(value!);
+                                  });
+                                },
+                                validator: (String? value) {
+                                  if (value!.isEmpty) {
+                                    return "date mustn't be empty";
+                                  }
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  prefixIcon: Icon(Icons.calendar_today),
+                                  labelText: " task date",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-              );
-                isBottomSheetShown = true ;
-                setState(() {
-                  myIcone= Icons.add ;
+                ).closed.then((value) {
+                  AppCubit.get(context).changeBottomSheetState(isShow: false, icon: Icons.edit);
                 });
+
+                AppCubit.get(context).changeBottomSheetState(isShow: true, icon: Icons.add);
               }
-          },
-          child: Icon(myIcone),
-    ),
+            },
+            child: Icon(AppCubit.get(context).myIcone),
+          ),
 
-      bottomNavigationBar: BottomNavigationBar
-        (
-        type: BottomNavigationBarType.fixed,
-          currentIndex: currentIndex,
-          onTap: (index)
-          {
-            setState(() {
-              currentIndex = index;
-            });
-          },
+          bottomNavigationBar: BottomNavigationBar
+            (
+              type: BottomNavigationBarType.fixed,
+              currentIndex:AppCubit.get(context).currentIndex,
+              onTap: (index) {
+                AppCubit.get(context).changeIndex(index);
+              },
               items:
-               [
-               BottomNavigationBarItem(
-                   icon: Icon(
-                     Icons.menu,
-                   ),
-                 label: "Tasks",
+              [
+                BottomNavigationBarItem(
+                  icon: Icon(
+                    Icons.menu,
+                  ),
+                  label: "Tasks",
 
-               ),
-               BottomNavigationBarItem(
-              icon: Icon(
-                Icons.check_circle,
-              ),
-              label: "Done",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(
+                    Icons.check_circle,
+                  ),
+                  label: "Done",
 
-            ),
-               BottomNavigationBarItem(
-              icon: Icon(
-                Icons.archive_outlined,
-              ),
-              label: "Archived",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(
+                    Icons.archive_outlined,
+                  ),
+                  label: "Archived",
 
-            ),
-               ]
+                ),
+              ]
+          ),
+        );}
+
       ),
     );
   }
 
-  Future<String> getName() async
-  {
-    return ("Qaneshy");
-  }
 
-  void creatDatabase() async
-  {
-     database = await openDatabase(
-        "todo.db",
-        version: 1,
-
-      onCreate: (database , version) async
-         {
-           print("dataBase created");
-         await database.execute("CREAT TABLE tasks (id INTEGER , title TEXT , data TEXT , time TEXT , status TEXT) ");
-           print("tabel created");
-
-         },
-
-      onOpen: (database)
-      {
-        print("dataBase opened");
-      },
-    );
-  }
-
-  void isertToDatabase()
-  {
-    database.transaction((txn)
-    {
-       return  txn.rawInsert(
-          "INSERT INTO tasks (tiltle , date , time , status) VALUES(first , 19/4 , 4 , muslem")
-          .then((value)
-               {
-                 print("$value successeded Inserting");
-               }).catchError((error)
-                    {
-                      print("Error when Inserting ${error.toString()}");
-                    });
-                 });
-  }
 }
+
+
